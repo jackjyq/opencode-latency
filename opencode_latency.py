@@ -4,20 +4,19 @@ import argparse
 import subprocess
 import sys
 import time
-from statistics import mean
 
 PROMPTS = [
     "Hi, how are you?",
     "What is the capital of France?",
     "How many days are in a leap year?",
     "What is 15 * 7?",
-    "Who wrote Romeo and Juliet?",
-    "What is the boiling point of water in Celsius?",
+    "How many letters in “apple”?",
+    "Write one sentence: I am ready.",
     "What is the square root of 144?",
-    "How many planets are in our solar system?",
+    "What color is the sky?",
     "What is the largest ocean on Earth?",
     "What year did World War II end?",
-    "What is the chemical symbol for gold?",
+    "Say “hello”.",
 ]
 
 
@@ -36,7 +35,7 @@ def parse_arguments():
     parser.add_argument(
         "--iterations",
         type=int,
-        default=1,
+        default=3,
         help="Number of iterations per model",
     )
     parser.add_argument(
@@ -87,7 +86,7 @@ def get_models_from_providers(providers: list[str] | None):
     return models
 
 
-def measure_model_latency(model, timeout, prompt) -> float | None:
+def measure_model_latency(model, timeout, prompt) -> float | str:
     start_time = time.perf_counter()
 
     try:
@@ -101,8 +100,13 @@ def measure_model_latency(model, timeout, prompt) -> float | None:
         if result.returncode == 0:
             return time.perf_counter() - start_time
 
+    except subprocess.TimeoutExpired:
+        return "Timeout"
+
     except Exception:
-        return None
+        return "Exception"
+
+    return "Error Code"
 
 
 def measure_model_latencies(model, timeout, iterations):
@@ -113,10 +117,22 @@ def measure_model_latencies(model, timeout, iterations):
     return latencies
 
 
-def print_header(iterations): ...
+def print_header(iterations):
+    header = "| Model / Latency (s) of Iteration |"
+    for i in range(1, iterations + 1):
+        header += f" {i:5} |"
+    print(header)
+    print("|" + "-" * (len(header) - 2) + "|")
 
 
-def print_latencies(model, latencies): ...
+def print_latencies(model, latencies):
+    row = f"| {model:32} |"
+    for latency in latencies:
+        if latency is None:
+            row += " Error |"
+        else:
+            row += f" {latency:5.2f} |"
+    print(row)
 
 
 def main():
