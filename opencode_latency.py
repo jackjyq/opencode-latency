@@ -4,7 +4,6 @@ import argparse
 import subprocess
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor
 from statistics import mean
 
 PROMPTS = [
@@ -55,12 +54,6 @@ def parse_arguments():
         default=60,
         help="Timeout in seconds for each model iteration",
     )
-    parser.add_argument(
-        "--threads",
-        type=int,
-        default=1,
-        help="Max number of parallel threads, default to 1",
-    )
 
     args = parser.parse_args()
 
@@ -101,56 +94,34 @@ def get_models_from_providers(providers: list[str] | None):
     return models
 
 
-def measure_ttft(model, prompt, timeout):
+def measure_latency(model, prompt, timeout):
     start_time = time.time()
-    first_token_time = None
-    process = None
 
     try:
-        process = subprocess.Popen(
+        result = subprocess.run(
             ["opencode", "run", prompt, "--agent", "plan", "--model", model],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
+            timeout=timeout,
         )
 
-        stdout = process.stdout
-        if stdout is not None:
-            first_char = stdout.read(1)
-            if first_char:
-                first_token_time = time.time()
+        elapsed = time.time() - start_time
 
-        if first_token_time is not None:
-            remaining_timeout = timeout - (first_token_time - start_time)
-            if remaining_timeout > 0:
-                process.wait(timeout=remaining_timeout)
-            else:
-                process.kill()
-                return None
+        if result.returncode == 0:
+            return elapsed
         else:
-            process.wait(timeout=timeout)
+            return None
 
-        if first_token_time:
-            return first_token_time - start_time
-        return None
     except subprocess.TimeoutExpired:
-        if process is not None:
-            process.kill()
         return None
     except Exception:
         return None
-    finally:
-        if process is not None:
-            try:
-                process.kill()
-            except Exception:
-                pass
 
 
 def test_model(model, prompt, iterations, timeout):
     results = []
     for i in range(iterations):
-        ttft = measure_ttft(model, prompt, timeout)
+        ttft = measure_latency(model, prompt, timeout)
         if ttft is not None:
             results.append(ttft)
     return results
@@ -193,8 +164,8 @@ def main():
         results[model] = result
         print_progress(model, result)
 
-    with ThreadPoolExecutor() as executor:
-        executor.map(test_and_progress, models)
+    for model in models:
+        test_and_progress(model)
 
     print_results(all_results=results)
 
