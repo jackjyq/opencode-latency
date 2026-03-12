@@ -128,8 +128,8 @@ def print_header(iterations):
 def print_latencies(model, latencies):
     row = f"| {model:32} |"
     for latency in latencies:
-        if latency is None:
-            row += " Error |"
+        if isinstance(latency, str):
+            row += f" {latency:>5} |"
         else:
             row += f" {latency:5.2f} |"
     print(row)
@@ -137,7 +137,7 @@ def print_latencies(model, latencies):
 
 def main():
     args = parse_arguments()
-    models = get_models_from_providers(args.providers)
+    models = args.models if args.models else get_models_from_providers(args.providers)
 
     print_header(args.iterations)
     for model in models:
