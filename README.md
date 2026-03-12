@@ -1,51 +1,58 @@
 # OpenCode Model Latency Measurement Tools
 
-A CLI tool for measuring Time To First Token (TTFT) latency of OpenCode models.
-
-TTFT (Time To First Token) is the latency from when a user sends a request to when the first token of the response begins to stream.
+A CLI tool to measure latency of OpenCode available models.
 
 ## Design
 
-This tool utilizes the [OpenCode CLI](https://opencode.ai/docs/cli) to measure model latency. Here is the core command:
+- use TTFT (Time To First Token) to measure model latency
+- utilizes [OpenCode CLI](./docs/opencode-cli.md) to test models
+- is a single Python script without external dependencies.
+- can test multiple models in parallel
+- can handle errors gracefully
 
-```shell
-# List all available models
-opencode models
-
-# Test a model
-opencode run "Hi, how are you?" --agent plan --model volcengine/minimax-m2.5
-```
-
-**Notes**
-
-- Each model test has a 30-second timeout
-- Models are tested in parallel
-- Errors and timeouts are handled gracefully
+## Installation
 
 ## Usage
 
 ```shell
-# Test all available models
-opencode-ttft --all
+opencode_ttft.py [-h] [--providers PROVIDERS...] [--models MODELS...] [--prompt PROMPT] [--iterations ITERATIONS] [--timeout TIMEOUT]
+
+# Test  models from providers
+opencode-ttft --providers opencode volcengine
 
 # Test specific models
 opencode-ttft --models opencode/kimi-k2.5 volcengine/glm-4.7 opencode/kimi-k2.5
+
+# Custom prompt, iterations and timeout
+opencode-ttft --models opencode/kimi-k2.5 --prompt "Explain quantum computing" --iterations 3 --timeout 60
 ```
 
 ## Example Results
 
 ```shell
+## Condition
+
+| Argument   | Value                                                    |
+| ---------- | -------------------------------------------------------- |
+| Providers  | opencode volcengine                                      |
+| Models     | opencode/kimi-k2.5 volcengine/glm-4.7 opencode/kimi-k2.5 |
+| Prompt     | "Explain quantum computing"                              |
+| Iterations | 3                                                        |
+| Timeout    | 60                                                       |
+
+## Progress
+
 Testing volcengine/glm-4.7 ... 4.23s
 Testing opencode/kimi-k2.5 ... 3.45s
 Testing opencode/kimi-k2.5 ... Error
 
-Model Latency:
+## Result
 
-| Model              | TTFT (s) |
-| ------------------ | -------- |
-| opencode/kimi-k2.5 | 3.45     |
-| volcengine/glm-4.7 | 4.23     |
-| opencode/kimi-k2.5 | Error    |
+| Model              | Average TTFT (s) | Max TTFT (s) |
+| ------------------ | ---------------- | ------------ |
+| opencode/kimi-k2.5 | 3.45             | 3.45         |
+| volcengine/glm-4.7 | 4.23             | 4.23         |
+| opencode/kimi-k2.5 | Error            | Error        |
 ```
 
 **Notes**
