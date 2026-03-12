@@ -4,13 +4,8 @@ import argparse
 import subprocess
 import sys
 import time
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from statistics import mean
-
-DEFAULT_PROMPT = "Explain quantum computing"
-DEFAULT_ITERATIONS = 1
-DEFAULT_TIMEOUT = 60
 
 
 def get_models_from_providers(providers):
@@ -35,6 +30,7 @@ def get_models_from_providers(providers):
 def measure_ttft(model, prompt, timeout):
     start_time = time.time()
     first_token_time = None
+    process = None
 
     try:
         process = subprocess.Popen(
@@ -64,15 +60,17 @@ def measure_ttft(model, prompt, timeout):
             return first_token_time - start_time
         return None
     except subprocess.TimeoutExpired:
-        process.kill()
+        if process is not None:
+            process.kill()
         return None
     except Exception:
         return None
     finally:
-        try:
-            process.kill()
-        except Exception:
-            pass
+        if process is not None:
+            try:
+                process.kill()
+            except Exception:
+                pass
 
 
 def test_model(model, prompt, iterations, timeout):
@@ -89,48 +87,37 @@ def print_progress(model, result):
         avg = mean(result)
         print(f"Testing {model} ... {avg:.2f}s")
     else:
-        print(f"Testing {model} ... Error", file=sys.stderr)
+        print(f"Testing {model} ... Error")
 
 
-def print_results(all_results, prompt, providers, models, iterations, timeout):
+def print_condition(providers, models, prompt, iterations, timeout):
     print("## Condition\n")
     print("| Argument   | Value                                                    |")
     print("| ---------- | -------------------------------------------------------- |")
-    print(
-        f"| Providers  | {' '.join(providers) if providers else 'N/A'}                                      |"
-    )
-    print(f"| Models     | {' '.join(models) if models else 'N/A'} |")
-    print(f'| Prompt     | "{prompt}"                              |')
-    print(
-        f"| Iterations | {iterations}                                                        |"
-    )
-    print(
-        f"| Timeout    | {timeout}                                                       |"
-    )
-
+    providers_str = " ".join(providers) if providers else "N/A"
+    models_str = " ".join(models) if models else "N/A"
+    print(f"| Providers  | {providers_str.ljust(56)} |")
+    print(f"| Models     | {models_str.ljust(56)} |")
+    print(f'| Prompt     | "{prompt}"'.ljust(56) + " |")
+    print(f"| Iterations | {str(iterations).ljust(56)} |")
+    print(f"| Timeout    | {str(timeout).ljust(56)} |")
     print("\n## Progress\n")
-    for model, result in all_results.items():
-        if result:
-            avg = mean(result)
-            print(f"Testing {model} ... {avg:.2f}s")
-        else:
-            print(f"Testing {model} ... Error")
 
+
+def print_results(all_results):
     print("\n## Result\n")
     print("| Model              | Average TTFT (s) | Max TTFT (s) |")
     print("| ------------------ | ---------------- | ------------ |")
 
     sorted_results = sorted(
-        all_results.items(), key=lambda x: (mean(x[1]) if x[1] else float("inf"))
+        all_results.items(), key=lambda x: mean(x[1]) if x[1] else float("inf")
     )
 
     for model, result in sorted_results:
         if result:
             avg = mean(result)
             max_ttft = max(result)
-            print(
-                f"| {model.ljust(18)} | {avg:.2f}             | {max_ttft:.2f}         |"
-            )
+            print(f"| {model.ljust(18)} | {avg:16.2f} | {max_ttft:12.2f} |")
         else:
             print(f"| {model.ljust(18)} | Error            | Error        |")
 
@@ -142,17 +129,12 @@ def main():
     )
     parser.add_argument("--models", nargs="+", help="Specific model IDs to test")
     parser.add_argument(
-        "--prompt", default=DEFAULT_PROMPT, help="Prompt to use for testing"
-    )
-    parser.add_argument(
         "--iterations",
         type=int,
-        default=DEFAULT_ITERATIONS,
+        default=1,
         help="Number of iterations per model",
     )
-    parser.add_argument(
-        "--timeout", type=int, default=DEFAULT_TIMEOUT, help="Timeout in seconds"
-    )
+    parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
 
     args = parser.parse_args()
 
@@ -170,6 +152,14 @@ def main():
         print("No models found to test", file=sys.stderr)
         sys.exit(1)
 
+    print_condition(
+        providers=args.providers or [],
+        models=models_to_test,
+        prompt=args.prompt,
+        iterations=args.iterations,
+        timeout=args.timeout,
+    )
+
     results = {}
 
     def test_and_progress(model):
@@ -180,14 +170,7 @@ def main():
     with ThreadPoolExecutor() as executor:
         executor.map(test_and_progress, models_to_test)
 
-    print_results(
-        all_results=results,
-        prompt=args.prompt,
-        providers=args.providers or [],
-        models=models_to_test,
-        iterations=args.iterations,
-        timeout=args.timeout,
-    )
+    print_results(all_results=results)
 
 
 if __name__ == "__main__":

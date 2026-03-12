@@ -15,7 +15,7 @@ A CLI tool to measure latency of OpenCode available models.
 ## Usage
 
 ```shell
-opencode_ttft.py [-h] [--providers PROVIDERS...] [--models MODELS...] [--prompt PROMPT] [--iterations ITERATIONS] [--timeout TIMEOUT]
+opencode_ttft.py [-h] [--providers PROVIDERS...] [--models MODELS...] [--iterations ITERATIONS] [--timeout TIMEOUT] [--thread THREAD]
 
 # Test  models from providers
 opencode-ttft --providers opencode volcengine
