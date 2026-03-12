@@ -7,23 +7,97 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from statistics import mean
 
+PROMPTS = [
+    "Hi, how are you?",
+    "What is the capital of France?",
+    "How many days are in a leap year?",
+    "What is 15 * 7?",
+    "Who wrote Romeo and Juliet?",
+    "What is the boiling point of water in Celsius?",
+    "What is the square root of 144?",
+    "How many planets are in our solar system?",
+    "What is the largest ocean on Earth?",
+    "What year did World War II end?",
+    "What is the chemical symbol for gold?",
+]
 
-def get_models_from_providers(providers):
+
+def validate_iterations(value):
+    ivalue = int(value)
+    if ivalue > len(PROMPTS):
+        raise argparse.ArgumentTypeError(
+            f"iterations ({ivalue}) cannot exceed number of prompts ({len(PROMPTS)})"
+        )
+    return ivalue
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Measure TTFT of OpenCode models")
+    parser.add_argument(
+        "--providers",
+        nargs="*",
+        help="Specific providers to test, default to all available providers",
+    )
+    parser.add_argument(
+        "--models",
+        nargs="*",
+        help="Specific model to test, can not be used with --providers",
+    )
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=1,
+        help="Number of iterations per model",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=60,
+        help="Timeout in seconds for each model iteration",
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help="Max number of parallel threads, default to 1",
+    )
+
+    args = parser.parse_args()
+
+    if args.providers and args.models:
+        print("Error: providers and models can not be used together")
+        sys.exit(1)
+
+    if args.iterations > len(PROMPTS):
+        print(f"Error: iterations cannot exceed number of prompts ({len(PROMPTS)})")
+        sys.exit(1)
+
+    return args
+
+
+def run_opencode_command(command):
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip().split("\n")
+    except Exception:
+        pass
+    return []
+
+
+def get_models_from_providers(providers: list[str] | None):
+    if not providers:
+        return run_opencode_command(["opencode", "models"])
+
     models = []
     for provider in providers:
-        try:
-            result = subprocess.run(
-                ["opencode", "models", provider],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result.returncode == 0:
-                models.extend(result.stdout.strip().split("\n"))
-        except subprocess.TimeoutExpired:
-            continue
-        except Exception:
-            continue
+        models.extend(run_opencode_command(["opencode", "models", provider]))
+
     return models
 
 
@@ -90,20 +164,6 @@ def print_progress(model, result):
         print(f"Testing {model} ... Error")
 
 
-def print_condition(providers, models, prompt, iterations, timeout):
-    print("## Condition\n")
-    print("| Argument   | Value                                                    |")
-    print("| ---------- | -------------------------------------------------------- |")
-    providers_str = " ".join(providers) if providers else "N/A"
-    models_str = " ".join(models) if models else "N/A"
-    print(f"| Providers  | {providers_str.ljust(56)} |")
-    print(f"| Models     | {models_str.ljust(56)} |")
-    print(f'| Prompt     | "{prompt}"'.ljust(56) + " |")
-    print(f"| Iterations | {str(iterations).ljust(56)} |")
-    print(f"| Timeout    | {str(timeout).ljust(56)} |")
-    print("\n## Progress\n")
-
-
 def print_results(all_results):
     print("\n## Result\n")
     print("| Model              | Average TTFT (s) | Max TTFT (s) |")
@@ -123,42 +183,8 @@ def print_results(all_results):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Measure TTFT of OpenCode models")
-    parser.add_argument(
-        "--providers", nargs="+", help="Provider IDs to test models from"
-    )
-    parser.add_argument("--models", nargs="+", help="Specific model IDs to test")
-    parser.add_argument(
-        "--iterations",
-        type=int,
-        default=1,
-        help="Number of iterations per model",
-    )
-    parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
-
-    args = parser.parse_args()
-
-    if not args.providers and not args.models:
-        parser.print_help()
-        sys.exit(1)
-
-    models_to_test = []
-    if args.providers:
-        models_to_test.extend(get_models_from_providers(args.providers))
-    if args.models:
-        models_to_test.extend(args.models)
-
-    if not models_to_test:
-        print("No models found to test", file=sys.stderr)
-        sys.exit(1)
-
-    print_condition(
-        providers=args.providers or [],
-        models=models_to_test,
-        prompt=args.prompt,
-        iterations=args.iterations,
-        timeout=args.timeout,
-    )
+    args = parse_arguments()
+    models = get_models_from_providers(args.providers)
 
     results = {}
 
@@ -168,7 +194,7 @@ def main():
         print_progress(model, result)
 
     with ThreadPoolExecutor() as executor:
-        executor.map(test_and_progress, models_to_test)
+        executor.map(test_and_progress, models)
 
     print_results(all_results=results)
 
