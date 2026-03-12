@@ -31,7 +31,7 @@ def validate_iterations(value):
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Measure TTFT of OpenCode models")
+    parser = argparse.ArgumentParser(description="Measure latency of OpenCode models")
     parser.add_argument(
         "--providers",
         nargs="*",
@@ -94,8 +94,8 @@ def get_models_from_providers(providers: list[str] | None):
     return models
 
 
-def measure_latency(model, prompt, timeout):
-    start_time = time.time()
+def measure_latency(model, timeout, prompt) -> float | None:
+    start_time = time.perf_counter()
 
     try:
         result = subprocess.run(
@@ -105,26 +105,19 @@ def measure_latency(model, prompt, timeout):
             timeout=timeout,
         )
 
-        elapsed = time.time() - start_time
-
         if result.returncode == 0:
-            return elapsed
-        else:
-            return None
+            return time.perf_counter() - start_time
 
-    except subprocess.TimeoutExpired:
-        return None
     except Exception:
         return None
 
 
-def test_model(model, prompt, iterations, timeout):
-    results = []
+def measure_latencies(model, timeout, iterations):
+    latencies = []
     for i in range(iterations):
-        ttft = measure_latency(model, prompt, timeout)
-        if ttft is not None:
-            results.append(ttft)
-    return results
+        latencies.append(measure_latency(model, timeout, prompt=PROMPTS[i]))
+
+    return latencies
 
 
 def print_progress(model, result):
@@ -160,7 +153,7 @@ def main():
     results = {}
 
     def test_and_progress(model):
-        result = test_model(model, args.prompt, args.iterations, args.timeout)
+        latencies = measure_latencies(model, args.timeout, args.iterations)
         results[model] = result
         print_progress(model, result)
 
