@@ -1,62 +1,42 @@
 # OpenCode Model Latency Measurement Tools
 
-A CLI tool to measure latency of OpenCode available models.
-
-## Design
-
-- use TTFT (Time To First Token) to measure model latency
-- utilizes [OpenCode CLI](./docs/opencode-cli.md) to test models
-- is a single Python script without external dependencies.
-- can test multiple models in parallel
-- can handle errors gracefully
-
-## Installation
+A self-contained CLI tool to measure latency of OpenCode available models.
 
 ## Usage
 
 ```shell
-opencode_ttft.py [-h] [--providers PROVIDERS...] [--models MODELS...] [--iterations ITERATIONS] [--timeout TIMEOUT] [--thread THREAD]
+➜  opencode_latency.py -h
+usage: opencode_latency.py [-h] [--providers [PROVIDERS ...]] [--models [MODELS ...]] [--iterations ITERATIONS] [--timeout TIMEOUT]
 
-# Test  models from providers
-opencode-ttft --providers opencode volcengine
+Measure latency of OpenCode models
 
-# Test specific models
-opencode-ttft --models opencode/kimi-k2.5 volcengine/glm-4.7 opencode/kimi-k2.5
-
-# Custom prompt, iterations and timeout
-opencode-ttft --models opencode/kimi-k2.5 --prompt "Explain quantum computing" --iterations 3 --timeout 60
+options:
+  -h, --help            show this help message and exit
+  --providers [PROVIDERS ...]
+                        Specific providers to test, default to all available providers
+  --models [MODELS ...]
+                        Specific model to test, can not be used with --providers
+  --iterations ITERATIONS
+                        Number of iterations per model
+  --timeout TIMEOUT     Timeout in seconds for each model iteration
 ```
 
 ## Example Results
 
-```md
-## Condition
-
-| Argument   | Value                                                    |
-| ---------- | -------------------------------------------------------- |
-| Providers  | opencode volcengine                                      |
-| Models     | opencode/kimi-k2.5 volcengine/glm-4.7 opencode/kimi-k2.5 |
-| Prompt     | "Explain quantum computing"                              |
-| Iterations | 3                                                        |
-| Timeout    | 60                                                       |
-
-## Progress
-
-Testing volcengine/glm-4.7 ... 4.23s
-Testing opencode/kimi-k2.5 ... 3.45s
-Testing opencode/kimi-k2.5 ... Error
-
-## Result
-
-| Model / Latency (s) of Iteration | 1     | 2     |
-| -------------------------------- | ----- | ----- |
-| opencode/kimi-k2.5               | 3.45  | 3.45  |
-| volcengine/glm-4.7               | 4.23  | 4.23  |
-| opencode/kimi-k2.5               | Error | Error |
+```
+| Model / Latency (s) of Iteration |     1 |     2 |     3 |
+|----------------------------------------------------------|
+| volcengine/ark-code-latest       | 10.34 | 11.12 | 16.96 |
+| volcengine/deepseek-v3.2         | 14.82 | 14.07 | 22.16 |
+| volcengine/doubao-seed-2.0-code  | 12.02 | 16.01 | 22.64 |
+| volcengine/doubao-seed-2.0-lite  | 14.19 | 14.92 | 14.45 |
+| volcengine/doubao-seed-2.0-pro   | 16.73 | 19.46 | 20.46 |
+| volcengine/doubao-seed-code      | 18.28 | 13.39 | 11.33 |
+| volcengine/glm-4.7               | 20.67 | 13.02 | 18.23 |
+| volcengine/kimi-k2.5             | 10.19 | 10.51 | 21.69 |
+| volcengine/minimax-m2.5          | Timeout | 18.44 | 13.17 |
 ```
 
-**Notes**
+## Refs
 
-- Results are rounded to 2 decimal places (in seconds)
-- Results are sorted by TTFT in ascending order
-- Timeout/Error models are marked with `Error` and placed at the end of the table
+- utilizes [OpenCode CLI](./docs/opencode-cli.md) tool
