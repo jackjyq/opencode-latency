@@ -21,15 +21,6 @@ PROMPTS = [
 ]
 
 
-def validate_iterations(value):
-    ivalue = int(value)
-    if ivalue > len(PROMPTS):
-        raise argparse.ArgumentTypeError(
-            f"iterations ({ivalue}) cannot exceed number of prompts ({len(PROMPTS)})"
-        )
-    return ivalue
-
-
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Measure latency of OpenCode models")
     parser.add_argument(
@@ -78,8 +69,10 @@ def run_opencode_command(command):
         )
         if result.returncode == 0:
             return result.stdout.strip().split("\n")
+
     except Exception:
-        pass
+        print("Warning: no models found for provider")
+
     return []
 
 
@@ -94,7 +87,7 @@ def get_models_from_providers(providers: list[str] | None):
     return models
 
 
-def measure_latency(model, timeout, prompt) -> float | None:
+def measure_model_latency(model, timeout, prompt) -> float | None:
     start_time = time.perf_counter()
 
     try:
@@ -112,55 +105,31 @@ def measure_latency(model, timeout, prompt) -> float | None:
         return None
 
 
-def measure_latencies(model, timeout, iterations):
+def measure_model_latencies(model, timeout, iterations):
     latencies = []
     for i in range(iterations):
-        latencies.append(measure_latency(model, timeout, prompt=PROMPTS[i]))
+        latencies.append(measure_model_latency(model, timeout, prompt=PROMPTS[i]))
 
     return latencies
 
 
-def print_progress(model, result):
-    if result:
-        avg = mean(result)
-        print(f"Testing {model} ... {avg:.2f}s")
-    else:
-        print(f"Testing {model} ... Error")
+def print_header(iterations): ...
 
 
-def print_results(all_results):
-    print("\n## Result\n")
-    print("| Model              | Average TTFT (s) | Max TTFT (s) |")
-    print("| ------------------ | ---------------- | ------------ |")
-
-    sorted_results = sorted(
-        all_results.items(), key=lambda x: mean(x[1]) if x[1] else float("inf")
-    )
-
-    for model, result in sorted_results:
-        if result:
-            avg = mean(result)
-            max_ttft = max(result)
-            print(f"| {model.ljust(18)} | {avg:16.2f} | {max_ttft:12.2f} |")
-        else:
-            print(f"| {model.ljust(18)} | Error            | Error        |")
+def print_latencies(model, latencies): ...
 
 
 def main():
     args = parse_arguments()
     models = get_models_from_providers(args.providers)
 
-    results = {}
-
-    def test_and_progress(model):
-        latencies = measure_latencies(model, args.timeout, args.iterations)
-        results[model] = result
-        print_progress(model, result)
-
+    print_header(args.iterations)
     for model in models:
-        test_and_progress(model)
+        latencies = measure_model_latencies(model, args.timeout, args.iterations)
+        print_latencies(model, latencies)
 
-    print_results(all_results=results)
+    print("")
+    print("done!")
 
 
 if __name__ == "__main__":

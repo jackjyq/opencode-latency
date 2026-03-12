@@ -29,7 +29,7 @@ opencode-ttft --models opencode/kimi-k2.5 --prompt "Explain quantum computing" -
 
 ## Example Results
 
-```shell
+```md
 ## Condition
 
 | Argument   | Value                                                    |
@@ -48,11 +48,11 @@ Testing opencode/kimi-k2.5 ... Error
 
 ## Result
 
-| Model              | Average TTFT (s) | Max TTFT (s) |
-| ------------------ | ---------------- | ------------ |
-| opencode/kimi-k2.5 | 3.45             | 3.45         |
-| volcengine/glm-4.7 | 4.23             | 4.23         |
-| opencode/kimi-k2.5 | Error            | Error        |
+| Model / Latency (s) of Iteration | 1     | 2     |
+| -------------------------------- | ----- | ----- |
+| opencode/kimi-k2.5               | 3.45  | 3.45  |
+| volcengine/glm-4.7               | 4.23  | 4.23  |
+| opencode/kimi-k2.5               | Error | Error |
 ```
 
 **Notes**
